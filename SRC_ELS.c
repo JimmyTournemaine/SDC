@@ -103,4 +103,8 @@ int main(void)
             exit(-8);
         }
     }
+    
+    /* Close everything opened */
+    close(sock);
+    close(fd);
 }

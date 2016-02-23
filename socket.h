@@ -1,11 +1,19 @@
-
+/**
+ * Use sockets easily
+ *
+ * @file product.h
+ * @author Jimmy Tournemaine <jimmy.tournemaine@yahoo.fr>
+ * @version 1.0
+ * @date 23 feb. 2016
+ *
+ * Some utilities to use sockets easily.
+ */
 
 /**
- * Crée une socket, prépare l'adresse et tente de se connecter au serveur
+ * Create a socket, prepare its address and connect to the server
  *
- * @param port Le numéro de port du serveur.
- * @param server_name Le nom humain du serveur.
- * @param server_addr Un pointeur pouvant accueillir l'adresse du serveur.
- * @return int Le descripteur de la socket.
+ * @param port Server port.
+ * @param server_name The server name.
+ * @return int The socket descriptor.
  */
 int sock_connect(int port, const char * server_name);
