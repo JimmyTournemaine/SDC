@@ -1,10 +1,14 @@
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "student.h"
 #include "socket.h"
 
 #define PORT 1234
-#define SERVER "tpreseaux"
+#define SERVER "localhost"
 #define TMPFILE "/tmp/src_els_exercise"
 #define BUFSIZE 1024
 
@@ -12,16 +16,16 @@ int main(void)
 {
     char attempts = 0;
     char buffer[BUFSIZE];
-    int socket, fd, response = 0;
+    int sock, fd, response = 0;
     struct student el;
     ssize_t size;
     
     /* Server connection */
-    socket = sock_connect(PORT, SERVER);
+    sock = sock_connect(PORT, SERVER);
     
     /* Student authentification */
     do {
-        tries++;
+        attempts++;
         
         // login/password
         el = student_id();
@@ -35,14 +39,14 @@ int main(void)
         
         // success ?
         if (recv(sock, &response, sizeof(int), 0) == -1) {
-            fsprintf(stderr, "An error occurred during reception of authentification message.\n");
+            fprintf(stderr, "An error occurred during reception of authentification message.\n");
             exit(-2);
         }
         if (response == 0) {
             printf("Sorry, try again.\n");
         }
 
-    } while (response != 1 || tries < 3);
+    } while (response != 1 || attempts < 3);
     
     if (response == 0) {
         printf("3 incorrect password attempts\n");
@@ -79,20 +83,21 @@ int main(void)
         }
         
         /* Get the exercise */
-      	if((n=read(socket_service,buf,BUFSIZE)) != size)
+      	if((read(sock,buffer,BUFSIZE)) != size)
         {
             fprintf(stderr, "The file is too large, you need to increase the buffer size");
             exit(-7);
         }
+        buffer[size] = '\0';
         
         /* Print exercice */
-        printf("%s\n", size);
+        printf("%s\n", buffer);
         
         printf("Your answer ? ");
         scanf("%d", &response);
         
         /* Send answer */
-        if ((send(sock, &rep, sizeof(int), 0)) != sizeof(int))
+        if ((send(sock, &response, sizeof(int), 0)) != sizeof(int))
         {
             fprintf(stderr, "Cannot send the answer.\n");
             exit(-8);

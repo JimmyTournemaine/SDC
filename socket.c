@@ -2,6 +2,7 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <sys/socket.h>
 #include "socket.h"
 
@@ -17,7 +18,7 @@ int sock_connect(int port, const char * server_name)
         perror("socket");
         exit(-1);
     }
-    
+
     /* recuperation de l'adresse IP du serveur (a partir de son nom) */
     if ((host = gethostbyname(server_name)) == NULL)
     {
