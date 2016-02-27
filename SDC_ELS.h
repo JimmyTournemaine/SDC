@@ -27,9 +27,9 @@ static int sock_connect();
 static void send_login(int sock, const char * login);
 
 /**
- * Read an exercise from a socket
- * @param sock The socket from which one read the exercise
- * @param buffer The buffer to store exercise
+ * Read a message from a socket
+ * @param sock The socket from which one read the message
+ * @param buffer The buffer to store the message
  */
 static void read_message(int sock, char * buffer);
 
