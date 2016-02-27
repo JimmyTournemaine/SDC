@@ -1,12 +1,18 @@
 CC=gcc
 
-all: SDC SDC_ELS SDC_PR
+all: SDC SDC_ELS SDC_PR SDC_CHAT
 
 SDC: SDC.o
 	$(LINK.c) SDC.o -o SDC
 
 SDC.o: SDC.c SDC.h
 	$(COMPILE.c) SDC.c -o SDC.o
+
+SDC_CHAT: SDC_CHAT.o
+	$(LINK.c) SDC_CHAT.o -o SDC_CHAT
+
+SDC_CHAT.o: SDC_CHAT.c SDC_CHAT.h
+	$(COMPILE.c) SDC_CHAT.c -o SDC_CHAT.o
 
 SDC_ELS: SDC_ELS.o
 	$(LINK.c) SDC_ELS.o -o SDC_ELS
@@ -24,4 +30,4 @@ clean:
 	rm -f *.o
 
 mrproper: clean
-	rm -f SDC SDC_ELS SDC_PR
+	rm -f SDC SDC_ELS SDC_PR SDC_CHAT
