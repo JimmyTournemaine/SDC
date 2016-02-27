@@ -14,27 +14,26 @@ int main(void)
 {
     /* Server launching */
     int socketRV = socket_listen(PORT);
-    
+    printf("Server is started.\n");
     
     char buffer[BUFSIZE];
-    int answer;
+    int answer = 0;
     Client students[MAXSTUDENTS];
     Client prof;
     int nbStudents = 0, i;
     int pendingAnswers;
     int max = socketRV;
+    int courseContinue = 1;
     
     fd_set rdfs;
-    FD_ZERO(&rdfs);
     
     /* ----------------------- Step 1 : Connections ---------------------- */
     
     /* Waiting for connections */
-    while (nbStudents < MAXSTUDENTS || prof.sock == 0)
+    while (1)
     {
-        int i = 0;
-
         /* Add the connection socket and professor socket */
+        FD_ZERO(&rdfs);
         FD_SET(socketRV, &rdfs);
         FD_SET(prof.sock, &rdfs);
         
@@ -70,39 +69,49 @@ int main(void)
             
             Client c = { csock };
             strcpy(c.login, buffer);
+            
+            /* It is the professor */
             if (strcmp(c.login, "prof") == 0) {
                 prof = c;
+                for (i=0; i<nbStudents; i++) {
+                    sprintf(buffer, "%s is connected.\n", students[i].login);
+                    write_client(csock, buffer);
+                }
+            /* Is is a student */
             } else {
-                if (nbStudents < MAXSTUDENTS){
-                    /* Add the student */
+                if (nbStudents < MAXSTUDENTS)
+                {
+                    /* Add the student and send him a welcoming message */
                     students[nbStudents++] = c;
                     sprintf(buffer, "Welcome %s !\nYou will receive your first exercise soon !", c.login);
                     write_client(csock, buffer);
+                    
+                    /* Notify the professor */
+                    fprintf(stderr, "%s is now connected\n", c.login);
+                    if(prof.sock != 0) {
+                        sprintf(buffer, "%s is now connected\n", c.login);
+                        write_client(prof.sock, buffer);
+                    }
                 } else {
                     /* Too many students */
-                    strcpy(buffer, "They are too many students, you will be disconnected.");
+                    strcpy(buffer, "> They are too many students, you will be disconnected.");
                     write_client(csock, buffer);
                     close(csock);
                 }
             }
-            
-            fprintf(stderr, "%s is now connected\n", c.login);
         }
-        /* start course OR send connected students */
+        /* The professor wants to start now */
         else if(FD_ISSET(prof.sock, &rdfs))
         {
+            fprintf(stderr, "Class is beginning.\n");
             read_client(prof.sock, buffer);
-            if (strcmp(buffer, "start") == 0) {
-                break;
-            }
-            send_connected_students(prof.sock, students, nbStudents);
+            break;
         }
     }
     
     fprintf(stderr, "Anyone will be accepted now.\n");
     
-    /* Anyone can connect now */
-    FD_CLR(socketRV, &rdfs);
+    /* Nobody can connect now */
     close(socketRV);
     
     /* ----------------------- Step 2 : Exercises ---------------------- */
@@ -122,12 +131,16 @@ int main(void)
         send_to_all_students(students, nbStudents, buffer);
         
         /* Wait answers */
-        FD_CLR(prof.sock, &rdfs);
-        
         pendingAnswers = nbStudents;
         
-        while (pendingAnswers)
+        while (pendingAnswers > 0)
         {
+            for (i=0; i<nbStudents; i++) {
+                FD_SET(students[i].sock, &rdfs);
+            }
+            
+            fprintf(stderr, "Waiting %d answers\n", pendingAnswers);
+            
             if(select(max + 1, &rdfs, NULL, NULL, NULL) == -1)
             {
                 perror("select()");
@@ -154,12 +167,12 @@ int main(void)
                         write_client(prof.sock, buffer);
                     }
                     pendingAnswers--;
-                    break;
                 }
 
             }
         }
         
+        fprintf(stderr, "Times up !");
         strcpy(buffer, "finished");
         write_client(prof.sock, buffer);
     }
@@ -183,7 +196,7 @@ static int read_client(int sock, char * buffer)
 
 static int read_answer(int sock, int * answer)
 {
-    return recv(sock, &answer, sizeof(int), 0);
+    return recv(sock, answer, sizeof(int), 0);
 }
 
 static void write_client(int sock, const char * buffer)

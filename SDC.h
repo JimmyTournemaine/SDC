@@ -1,5 +1,14 @@
+/**
+ * Student RIP application
+ * @file SDC_ELS.h
+ * @author Jean Arthur Ousmane
+ * @author Jimmy Tournemaine <jimmy.tournemaine@yahoo.fr>
+ * @version 1.0
+ * @date 23 feb. 2016
+ */
+
 #define PORT 1234
-#define MAXSTUDENTS 20
+#define MAXSTUDENTS 2
 #define BUFSIZE 1024
 #define LOGINSIZE 16
 #define BASEDIR "/Users/jimmytournemaine/Documents/Dossiers Professionels/Cours/Documents/Travail/Reseau/Projet/exercices"

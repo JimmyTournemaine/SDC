@@ -1,6 +1,13 @@
+/**
+ * Student RIP application
+ * @file SDC_ELS.h
+ * @author Jimmy Tournemaine <jimmy.tournemaine@yahoo.fr>
+ * @version 1.0
+ * @date 23 feb. 2016
+ */
+
 #define PORT 1234
 #define SERVER_NAME "localhost"
-#define TMPFILE "/tmp/src_els_exercise"
 #define BUFSIZE 1024
 
 /**

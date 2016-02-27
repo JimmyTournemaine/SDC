@@ -21,6 +21,11 @@ int main(void)
     
     read_message(sock, buffer);
     printf("%s\n", buffer);
+    fflush(stdout);
+    
+    if (buffer[0] == '>') {
+        exit(0);
+    }
     
     while (1)
     {
@@ -28,8 +33,9 @@ int main(void)
         printf("%s\n", buffer);
         
         printf("Your answer ? ");
-        scanf("%d", &answer);
+        fflush(stdout);
         
+        scanf("%d", &answer);
         send_exercise_answer(sock, &answer);
     }
 }
@@ -89,6 +95,8 @@ static void read_message(int sock, char * buffer)
         fprintf(stderr, "Cannot read a message.\n");
         exit(EXIT_FAILURE);
     }
+    
+    buffer[n] = '\0';
 }
 
 static void send_exercise_answer(int sock, int * panswer)
