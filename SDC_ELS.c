@@ -5,24 +5,54 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <termios.h>
 #include "SDC_ELS.h"
 
 int main(void)
 {
+    struct sockaddr_in to;
+    int sock = sock_create(&to);
+    
     char buffer[BUFSIZE];
-    char login[16];
-    int sock, answer;
+    char login[255];
+    char password[255];
+    int accessGranted, answer;
+    socklen_t tosize = sizeof to;
     
-    sock = sock_connect();
-    
+    /* -------------- Authentification ------------- */
     printf("Login : ");
     scanf("%s", login);
+    
+    ask_password(password);
+    crypt_password(password);
+    
+    /* Sending */
+    sprintf(buffer, "%s+%s", login, password);
+    sendID(sock, buffer, &to, tosize);
+    
+    getAuthenticationResponse(sock, &accessGranted, &to, &tosize);
+    if (accessGranted) {
+        printf("Access granted.\n");
+    } else {
+        exit(EXIT_FAILURE);
+    }
+    
+    close(sock);
+    
+    /* ----------- TCP Connection & class -----------*/
+    
+    /* TCP Connection */
+    sock = sock_connect();
+    
+    /* Send login */
     send_login(sock, login);
     
+    /* Print response */
     read_message(sock, buffer);
     printf("%s\n", buffer);
     fflush(stdout);
     
+    /* If too many connection, the response start by '>' */
     if (buffer[0] == '>') {
         exit(0);
     }
@@ -41,6 +71,7 @@ int main(void)
 }
 
 
+/*************** TCP PART ********************/
 static int sock_connect()
 {
     int sock;
@@ -106,5 +137,87 @@ static void send_exercise_answer(int sock, int * panswer)
     if (sent != sizeof(int)){
         fprintf(stderr, "Cannot send the answer.\n");
         exit(EXIT_FAILURE);
+    }
+}
+
+/***************** UDP Authentification *********************/
+
+static int sock_create(struct sockaddr_in * to)
+{
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if(sock == -1)
+    {
+        perror("socket()");
+        exit(EXIT_FAILURE);
+    }
+    
+    
+    struct hostent *hostinfo = gethostbyname(SERVER_NAME);
+    if (hostinfo == NULL)
+    {
+        fprintf (stderr, "Unknown host %s.\n", SERVER_NAME);
+        exit(EXIT_FAILURE);
+    }
+    
+    to->sin_addr = *(struct in_addr *) hostinfo->h_addr;
+    to->sin_port = htons(PORT);
+    to->sin_family = AF_INET;
+    
+    return sock;
+}
+
+static void sendID(int sock, char * buffer, struct sockaddr_in * to, socklen_t tosize)
+{
+    if(sendto(sock, buffer, BUFSIZE, 0, (struct sockaddr *)to, tosize) < 0)
+    {
+        perror("sendto()");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void getAuthenticationResponse(int sock, int * val, struct sockaddr_in * to, socklen_t * tosize)
+{
+    int n;
+    if((n = recvfrom(sock, val, sizeof(int), 0, (struct sockaddr *) to, (socklen_t *)tosize)) < 0)
+    {
+        perror("recvfrom()");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void ask_password(char * password)
+{
+    struct termios oflags, nflags;
+    
+    /* Disabling echo */
+    tcgetattr(fileno(stdin), &oflags);
+    nflags = oflags;
+    nflags.c_lflag &= ~ECHO;
+    nflags.c_lflag |= ECHONL;
+    
+    if (tcsetattr(fileno(stdin), TCSANOW, &nflags) != 0) {
+        perror("tcsetattr");
+        exit(EXIT_FAILURE);
+    }
+    
+    printf("Password: ");
+    scanf("%s", password);
+    password[strlen(password)] = 0;
+    
+    /* Restore terminal */
+    if (tcsetattr(fileno(stdin), TCSANOW, &oflags) != 0) {
+        perror("tcsetattr");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void crypt_password(char * buffer)
+{
+    for (int i=0; i < strlen(buffer); i++) {
+        if (i % 2 == 0) {
+            buffer[i]++;
+        } else {
+            buffer[i]--;
+        }
     }
 }

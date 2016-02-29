@@ -10,7 +10,7 @@
 #define MAXSTUDENTS 20
 #define BUFSIZE 1024
 #define LOGINSIZE 16
-#define BASEDIR "../exercices"
+#define BASEDIR "exercices"
 
 typedef struct {
     int sock;

@@ -66,6 +66,7 @@ int main(void)
         /* Send the exercise name */
         sock_write(sock, buffer);
         
+        printf("---------------------------------------------------------\n");
         /* Get answers, disconnection message or end of the exercise */
         while(1) {
             sock_read(sock, buffer);
@@ -78,7 +79,7 @@ int main(void)
         }
         
         printf("Exercise done.\n");
-        fflush(stdout);
+        printf("---------------------------------------------------------\n");
     }
     
     close(sock);
