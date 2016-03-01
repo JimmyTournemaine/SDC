@@ -1,19 +1,28 @@
-#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/select.h>
-#include <sys/socket.h>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <arpa/inet.h>
 #include "SDC_PR.h"
 
 int main(void)
 {
     char buffer[BUFSIZE] = "prof";
     int count = 0;
+    char buf[BUFSIZE];
+    struct sockaddr_in adr;
+    
+    /*connexion UDP*/
+    int socket = udp_connect();
     
     /* Server connection */
     int sock = sock_connect();
+
     strcpy(buffer, "prof");
     sock_write(sock, buffer);
     
@@ -66,20 +75,47 @@ int main(void)
         /* Send the exercise name */
         sock_write(sock, buffer);
         
-        printf("---------------------------------------------------------\n");
         /* Get answers, disconnection message or end of the exercise */
-        while(1) {
-            sock_read(sock, buffer);
-            if(strcmp(buffer, "finished") == 0){
-                break;
-            } else {
-                printf("%s\n", buffer);
+      while(1) {
+
+	 FD_ZERO(&rdfs);
+         FD_SET(sock, &rdfs);
+         FD_SET(socket, &rdfs);
+        
+           if(select(sock + 1, &rdfs, NULL, NULL, NULL) == -1)
+           {
+            perror("select()");
+            exit(EXIT_FAILURE);
+           }
+
+	    if(FD_ISSET(sock, &rdfs))
+            {
+            	sock_read(sock, buffer);
+           	 if(strcmp(buffer, "finished") == 0)
+		  {
+               		 break;
+            	  }
+ 		else 
+		{
+                	printf("%s\n", buffer);
+                	fflush(stdout);
+            	}
+	    }
+
+	    else if(FD_ISSET(socket, &rdfs))
+	    {
+		receive_message(socket,&adr,buf);
+		printf("%s\n", buf);
                 fflush(stdout);
-            }
+
+		scanf("%s",buf);
+		send_message(socket,&adr,buf);
+		
+	    }
         }
         
         printf("Exercise done.\n");
-        printf("---------------------------------------------------------\n");
+        fflush(stdout);
     }
     
     close(sock);
@@ -140,4 +176,76 @@ static int sock_connect()
     }
     
     return sock;
+}
+
+
+
+// Se connecter en UPD
+static int udp_connect()
+{
+
+  int sock;
+  struct sockaddr_in adresseReceveur;
+  int lgadresseReceveur;
+  struct hostent *hote;
+
+ 
+   if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1) 
+	{
+  	perror("socket"); 
+  	exit(1);
+  	}
+
+  /* recherche de l'@ IP de la machine distante */
+  if ((hote = gethostbyname(SERVER_NAME)) == NULL)
+	{
+  	perror("gethostbyname"); 
+  	close(sock); 
+  	exit(2);
+  	}
+
+  /* pr'eparation de l'adresse distante : port + la premier @ IP */
+  adresseReceveur.sin_family = AF_INET;
+  adresseReceveur.sin_port = htons(PORT);
+  bcopy(hote->h_addr, &adresseReceveur.sin_addr, hote->h_length);
+  printf("L'adresse en notation pointee %s\n", inet_ntoa(adresseReceveur.sin_addr)); 
+
+   return sock;
+}
+
+
+
+
+// Envoyer le contenu de buffer depuis la socket
+static void send_message(SOCKET sock, struct sockaddr_in *adresseReceveur, const char *buffer)
+{
+   int envoye;
+  int lgadresseReceveur;
+lgadresseReceveur = sizeof(struct sockaddr_in);
+if ((envoye = sendto(sock,buffer,strlen(buffer)+1,0,(struct sockaddr *)adresseReceveur,lgadresseReceveur )) != strlen(buffer)+1) 
+	{
+  	
+if (errno == EINVAL)
+printf("erreur de taille\n");
+
+if (errno == EBADF)
+printf("erreur de socket\n"); 
+  	close(sock); 
+  	exit(1);
+  	}
+   
+}
+
+// Recevoir un message depuis la socket et le stocker dans buffer 
+static void receive_message(SOCKET sock, struct sockaddr_in *adresseReceveur, char *buffer)
+{
+ int recu;
+int lgadresseReceveur;
+lgadresseReceveur = sizeof(struct sockaddr_in);
+if ((recu = recvfrom(sock,buffer,BUFSIZE,0,(struct sockaddr *)adresseReceveur,&lgadresseReceveur)) == -1) 
+	{
+	perror("recvfrom()"); 
+	close(sock); 
+	exit(1);
+	}
 }

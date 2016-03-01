@@ -9,6 +9,10 @@
 #define PORT 1234
 #define SERVER_NAME "localhost"
 #define BUFSIZE 1024
+typedef int SOCKET;
+typedef struct sockaddr_in SOCKADDR_IN;
+typedef struct sockaddr SOCKADDR;
+typedef struct in_addr IN_ADDR;
 
 /**
  * Create a socket, prepare its address and connect to the server.
@@ -32,3 +36,11 @@ static void sock_read(int sock, char * buffer);
  * @param buffer The buffer wich contains the message to send
  */
 static void sock_write(int sock, const char * buffer);
+
+
+static int udp_connect();
+
+
+static void send_message(int sock, struct sockaddr_in *adr, const char *buffer);
+
+static void receive_message(SOCKET sock, SOCKADDR_IN *sin, char *buffer);
