@@ -1,35 +1,49 @@
+/**
+ * Authentification service of RIP application
+ * @file SA.h
+ * @author Jimmy Tournemaine <jimmy.tournemaine@yahoo.fr>
+ * @version 1.0
+ * @date 27 feb. 2016
+ */
+
+#ifndef SA
+
+#define SA
 #define PORT 1234
 #define BUFSIZE 1024
 #define PASSFILE ".passwords"
 
 /**
- * Create and bind a socket
- * @param sin The adress
+ * Creates and binds a socket
+ * @param[out] sin A pointer to the adress
  * @return The socket descriptor
  */
 int sock_create(struct sockaddr_in * sin);
 
 /**
- * Get the <login>+<encrypted_password> to authenticate
+ * Gets the <login>+<encrypted_password> to authenticate a student
  * @param sock The socket from which one read the message
- * @param buffer To store ids
- * @param from The address of the sender
- * @param fromsize The size of the sender's adress
+ * @param[out] buffer To store the string
+ * @param[out] from A pointer to the address of the sender
+ * @param[out] fromsize A pointer to the size of the sender's address
  */
 void read_client(int sock, char * buffer, struct sockaddr_in * from, socklen_t * fromsize);
 
 /**
- * Send a "boolean" to the client represents the success of the authentification
+ * Sends a "boolean" to the client represents the success of the authentification
  * @param sock The socket from which one write the authentication success or not
- * @param pval The address of the "boolean" to send
- * @param from The address of the client
- * @param fromsize The size of the clients' address
+ * @param[in] pval The address of the "boolean" to send
+ * @param[in] from A pointer to the address of the receiver
+ * @param fromsize The size of the receiver's address
  */
 void write_client(int sock, int * pval, struct sockaddr_in * from, socklen_t fromsize);
 
 /**
- * Check if ids exists
- * @param buffer The structured string
+ * Checks if ids exists
+ * @param[in] stream The stream which contains encrypted passwords
+ * @param[out] buffer The structured string
  * @return 0|1 If succeed or not
  */
 int auth(FILE * stream, char * buffer);
+
+#endif
