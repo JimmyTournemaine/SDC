@@ -23,7 +23,6 @@ int main(void)
     int nbStudents = 0, i;
     int pendingAnswers;
     int max = socketRV;
-    int courseContinue = 1;
     
     fd_set rdfs;
     
@@ -135,6 +134,7 @@ int main(void)
         
         while (pendingAnswers > 0)
         {
+            FD_ZERO(&rdfs);
             for (i=0; i<nbStudents; i++) {
                 FD_SET(students[i].sock, &rdfs);
             }
@@ -158,7 +158,7 @@ int main(void)
                         close(students[i].sock);
                         remove_client(students, i, &nbStudents);
                         strcpy(buffer, student.login);
-                        strcat(buffer, " disconnected !");
+                        strcat(buffer, " is disconnected !");
                         write_client(prof.sock, buffer);
                     }
                     else
@@ -206,23 +206,6 @@ static void write_client(int sock, const char * buffer)
         perror("send()");
         exit(1);
     }
-}
-
-static void send_connected_students(int sock, const Client * clients, int nbClients)
-{
-    char str[MAXSTUDENTS*LOGINSIZE];
-    int i;
-    
-    if (nbClients > 0) {
-        for (i=0; i<nbClients; i++) {
-            strcat(str, clients[i].login);
-            strcat(str, "\n");
-        }
-    } else {
-        strcpy(str, "Anyone");
-    }
-    
-    write_client(sock, str);
 }
 
 static void send_to_all_students(Client * students, int nbStudents, const char * buffer)

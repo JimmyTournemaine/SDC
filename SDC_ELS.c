@@ -54,6 +54,7 @@ int main(void)
     
     /* If too many connection, the response start by '>' */
     if (buffer[0] == '>') {
+        close(sock);
         exit(0);
     }
     
@@ -68,6 +69,8 @@ int main(void)
         scanf("%d", &answer);
         send_exercise_answer(sock, &answer);
     }
+    
+    close(sock);
 }
 
 

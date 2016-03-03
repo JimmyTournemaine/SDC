@@ -11,135 +11,108 @@
 #include <errno.h>
 #include "SDC_CHAT.h"
 
-int main(void) 
-
+int main(void)
 {
-   
-   struct sockaddr_in adresseReceveur;
-    SOCKET sock;
+    
+    struct sockaddr_in adresseReceveur;
+    socklen_t lgadresseReceveur = sizeof adresseReceveur;
+    
     char buffer[BUFSIZE];
     fd_set rdfs;
-   
-    sock = udp_connect();
     
-while(1){
-
-     FD_ZERO(&rdfs);
-     FD_SET(STDIN_FILENO, &rdfs);
-     FD_SET(sock, &rdfs);
-     
-
-    if(select(sock + 1, &rdfs, NULL, NULL, NULL) == -1)
+    int sock = udp_connect(&adresseReceveur);
+    
+    while(1){
+        
+        FD_ZERO(&rdfs);
+        FD_SET(STDIN_FILENO, &rdfs);
+        FD_SET(sock, &rdfs);
+        
+        
+        if(select(sock + 1, &rdfs, NULL, NULL, NULL) == -1)
         {
             perror("select()");
             exit(EXIT_FAILURE);
         }
-	
-   
-    /*réception de la réponse du professeur*/
-    if(FD_ISSET(STDIN_FILENO, &rdfs))
-     {
-	   scanf("%s",buffer);
-	    if(strcmp(buffer,"fin")==0)
-	    {
-		break;
-	    }
-   	    send_message(sock, &adresseReceveur, buffer);
-            
-     }
-
-      /*envoie du message*/
-     else if(FD_ISSET(sock, &rdfs))
+        
+        
+        /*réception de la réponse du professeur*/
+        if(FD_ISSET(STDIN_FILENO, &rdfs))
         {
-       	    receive_message(sock, &adresseReceveur, buffer);
-            printf("%s", buffer); 
-	    fflush(stdout);
-   	    
+            fgets(buffer, BUFSIZE, stdin);
+            buffer[strlen(buffer)-1] = '\0';
+            if(strcmp(buffer,"")==0)
+            {
+                break;
+            }
+            send_message(sock, &adresseReceveur, buffer, lgadresseReceveur);
+            
         }
-      
-}   
-
-    printf("Fin de la discussion\n");
-
-   /*ferméture de la socket*/ 
-   close(sock);
+        
+        /*envoie du message*/
+        else if(FD_ISSET(sock, &rdfs))
+        {
+       	    receive_message(sock, &adresseReceveur, buffer, &lgadresseReceveur);
+            printf("%s\n", buffer);
+            fflush(stdout);
+            
+        }
+        
+    }
+    
+    printf("Goodbye !\n");
+    close(sock);
     return 0;
 }
 
 
 // Se connecter en UPD
-static int udp_connect()
+static int udp_connect(struct sockaddr_in * adresseReceveur)
 {
-
-  int sock;
-  struct sockaddr_in adresseReceveur;
-  int lgadresseReceveur;
-  struct hostent *hote;
-
- 
-   if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1) 
-	{
-  	perror("socket"); 
-  	exit(1);
-  	}
-
-  /* recherche de l'@ IP de la machine distante */
-  if ((hote = gethostbyname(SERVER)) == NULL)
-	{
-  	perror("gethostbyname"); 
-  	close(sock); 
-  	exit(2);
-  	}
-
-  /* pr'eparation de l'adresse distante : port + la premier @ IP */
-  adresseReceveur.sin_family = AF_INET;
-  adresseReceveur.sin_port = htons(PORT);
-  bcopy(hote->h_addr, &adresseReceveur.sin_addr, hote->h_length);
-  printf("L'adresse en notation pointee %s\n", inet_ntoa(adresseReceveur.sin_addr));
-
-  lgadresseReceveur = sizeof(adresseReceveur);
-if ((bind(sock,(struct sockaddr *)&adresseReceveur,lgadresseReceveur)) == -1) 
-	{
-  	perror("bind"); 
-  	exit(1);
-  	} 
-
-   return sock;
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if(sock == -1)
+    {
+        fprintf(stderr, "Cannot create socket.\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    
+    struct hostent *hostinfo = gethostbyname(SERVER);
+    if (hostinfo == NULL)
+    {
+        fprintf (stderr, "Unknown host %s.\n", SERVER);
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+    
+    adresseReceveur->sin_addr = *(struct in_addr *) hostinfo->h_addr;
+    adresseReceveur->sin_port = htons(PORT);
+    adresseReceveur->sin_family = AF_INET;
+    
+    return sock;
 }
 
 
 
 // Envoyer le contenu de buffer depuis la socket
-static void send_message(SOCKET sock, struct sockaddr_in *adresseReceveur, const char *buffer)
+static void send_message(int sock, struct sockaddr_in *adresseReceveur, const char *buffer, socklen_t lgadresseReceveur)
 {
-   int envoye;
-  int lgadresseReceveur;
-lgadresseReceveur = sizeof(struct sockaddr_in);
-if ((envoye = sendto(sock,buffer,strlen(buffer)+1,0,(struct sockaddr *)adresseReceveur,lgadresseReceveur )) != strlen(buffer)+1) 
-	{
-  	
-if (errno == EINVAL)
-printf("erreur de taille\n");
-
-if (errno == EBADF)
-printf("erreur de socket\n"); 
-  	close(sock); 
-  	exit(1);
-  	}
-   
+    printf("J'envoie : %s\n", buffer);
+    if (sendto(sock,buffer,BUFSIZE,0,(struct sockaddr *)adresseReceveur, sizeof(*adresseReceveur)) < 0)
+    {
+        fprintf(stderr, "Cannot send message.\n");
+        exit(1);
+    }
+    
 }
 
-// Recevoir un message depuis la socket et le stocker dans buffer 
-static void receive_message(SOCKET sock, struct sockaddr_in *adresseReceveur, char *buffer)
+// Recevoir un message depuis la socket et le stocker dans buffer
+static void receive_message(int sock, struct sockaddr_in *adresseReceveur, char *buffer, socklen_t * lgadresseReceveur)
 {
- int recu;
-int lgadresseReceveur;
-lgadresseReceveur = sizeof(struct sockaddr_in);
-if ((recu = recvfrom(sock,buffer,BUFSIZE,0,(struct sockaddr *)adresseReceveur,&lgadresseReceveur)) == -1) 
-	{
-	perror("recvfrom()"); 
-	close(sock); 
-	exit(1);
-	}
+    if (recvfrom(sock,buffer,BUFSIZE,0,(struct sockaddr *)adresseReceveur,lgadresseReceveur) == -1)
+    {
+        fprintf(stderr, "Cannot receive message.\n");
+        exit(1);
+    }
 }
 

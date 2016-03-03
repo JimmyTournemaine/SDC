@@ -13,16 +13,16 @@
 int main(void)
 {
     char buffer[BUFSIZE] = "prof";
-    int count = 0;
-    char buf[BUFSIZE];
+    char c;
     struct sockaddr_in adr;
+    socklen_t sizeadr = sizeof adr;
     
     /*connexion UDP*/
-    int socket = udp_connect();
+    int socket = udp_connect(&adr);
     
     /* Server connection */
     int sock = sock_connect();
-
+    
     strcpy(buffer, "prof");
     sock_write(sock, buffer);
     
@@ -72,50 +72,59 @@ int main(void)
         fflush(stdout);
         scanf("%s", buffer);
         
+        /* Purge stdin */
+        do {
+            c = getchar();
+        } while (c != EOF && c != '\n');
+        
         /* Send the exercise name */
         sock_write(sock, buffer);
         
         /* Get answers, disconnection message or end of the exercise */
-      while(1) {
-
-	 FD_ZERO(&rdfs);
-         FD_SET(sock, &rdfs);
-         FD_SET(socket, &rdfs);
-        
-           if(select(sock + 1, &rdfs, NULL, NULL, NULL) == -1)
-           {
-            perror("select()");
-            exit(EXIT_FAILURE);
-           }
-
-	    if(FD_ISSET(sock, &rdfs))
+        int max = (sock > socket) ? sock : socket;
+        while(1) {
+            
+            FD_ZERO(&rdfs);
+            FD_SET(sock, &rdfs);
+            FD_SET(socket, &rdfs);
+            
+            if(select(max + 1, &rdfs, NULL, NULL, NULL) == -1)
             {
-            	sock_read(sock, buffer);
-           	 if(strcmp(buffer, "finished") == 0)
-		  {
-               		 break;
-            	  }
- 		else 
-		{
-                	printf("%s\n", buffer);
-                	fflush(stdout);
-            	}
-	    }
-
-	    else if(FD_ISSET(socket, &rdfs))
-	    {
-		receive_message(socket,&adr,buf);
-		printf("%s\n", buf);
-                fflush(stdout);
-
-		scanf("%s",buf);
-		send_message(socket,&adr,buf);
-		
-	    }
+                perror("select()");
+                exit(EXIT_FAILURE);
+            }
+            
+            /* Affichage réponses */
+            if(FD_ISSET(sock, &rdfs))
+            {
+                sock_read(sock, buffer);
+                if(strcmp(buffer, "finished") == 0)
+                {
+                    break;
+                }
+                else
+                {
+                    printf("%s\n", buffer);
+                    fflush(stdout);
+                }
+            }
+            
+            /* Chat */
+            else if(FD_ISSET(socket, &rdfs))
+            {
+                receive_message(socket,&adr,buffer, &sizeadr);
+                printf("Une question vous est posée :\n%s\n", buffer);
+                
+                printf("Votre réponse : ");
+                fgets(buffer, BUFSIZE, stdin);
+                buffer[strlen(buffer)-1] = '\0';
+                send_message(socket,&adr,buffer, sizeadr);
+            }
         }
         
         printf("Exercise done.\n");
-        fflush(stdout);
+        
+        sleep(3);
     }
     
     close(sock);
@@ -156,7 +165,7 @@ static int sock_connect()
     }
     
     /* Get host */
-    if ((host = gethostbyname(SERVER_NAME)) == NULL)
+    if ((host = gethostbyname(SERVER)) == NULL)
     {
         perror("gethostbyname");
         exit(EXIT_FAILURE);
@@ -179,73 +188,46 @@ static int sock_connect()
 }
 
 
-
 // Se connecter en UPD
-static int udp_connect()
+static int udp_connect(struct sockaddr_in * adresseReceveur)
 {
-
-  int sock;
-  struct sockaddr_in adresseReceveur;
-  int lgadresseReceveur;
-  struct hostent *hote;
-
- 
-   if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1) 
-	{
-  	perror("socket"); 
-  	exit(1);
-  	}
-
-  /* recherche de l'@ IP de la machine distante */
-  if ((hote = gethostbyname(SERVER_NAME)) == NULL)
-	{
-  	perror("gethostbyname"); 
-  	close(sock); 
-  	exit(2);
-  	}
-
-  /* pr'eparation de l'adresse distante : port + la premier @ IP */
-  adresseReceveur.sin_family = AF_INET;
-  adresseReceveur.sin_port = htons(PORT);
-  bcopy(hote->h_addr, &adresseReceveur.sin_addr, hote->h_length);
-  printf("L'adresse en notation pointee %s\n", inet_ntoa(adresseReceveur.sin_addr)); 
-
-   return sock;
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if(sock == -1)
+    {
+        perror("socket()");
+    }
+    
+    adresseReceveur->sin_addr.s_addr = htonl(INADDR_ANY);
+    adresseReceveur->sin_family = AF_INET;
+    adresseReceveur->sin_port = htons(CHAT_PORT);
+    
+    if(bind (sock, (struct sockaddr *) adresseReceveur, sizeof *adresseReceveur) == -1)
+    {
+        perror("bind()");
+    }
+    
+    return sock;
 }
-
 
 
 
 // Envoyer le contenu de buffer depuis la socket
-static void send_message(SOCKET sock, struct sockaddr_in *adresseReceveur, const char *buffer)
+static void send_message(int sock, struct sockaddr_in *adresseReceveur, const char *buffer, socklen_t lgadresseReceveur)
 {
-   int envoye;
-  int lgadresseReceveur;
-lgadresseReceveur = sizeof(struct sockaddr_in);
-if ((envoye = sendto(sock,buffer,strlen(buffer)+1,0,(struct sockaddr *)adresseReceveur,lgadresseReceveur )) != strlen(buffer)+1) 
-	{
-  	
-if (errno == EINVAL)
-printf("erreur de taille\n");
-
-if (errno == EBADF)
-printf("erreur de socket\n"); 
-  	close(sock); 
-  	exit(1);
-  	}
-   
+    int n;
+    if ((n = sendto(sock,buffer,BUFSIZE,0,(struct sockaddr *)adresseReceveur,lgadresseReceveur)) < 0)
+    {
+        fprintf(stderr, "Cannot send your message.\n");
+    }
+    
 }
 
-// Recevoir un message depuis la socket et le stocker dans buffer 
-static void receive_message(SOCKET sock, struct sockaddr_in *adresseReceveur, char *buffer)
+// Recevoir un message depuis la socket et le stocker dans buffer
+static void receive_message(int sock, struct sockaddr_in *adresseReceveur, char *buffer, socklen_t * lgadresseReceveur)
 {
- int recu;
-int lgadresseReceveur;
-lgadresseReceveur = sizeof(struct sockaddr_in);
-if ((recu = recvfrom(sock,buffer,BUFSIZE,0,(struct sockaddr *)adresseReceveur,&lgadresseReceveur)) == -1) 
-	{
-	perror("recvfrom()"); 
-	close(sock); 
-	exit(1);
-	}
+    int recu;
+    if ((recu = recvfrom(sock,buffer,BUFSIZE,0,(struct sockaddr *)adresseReceveur,lgadresseReceveur)) == -1)
+    {
+        fprintf(stderr, "Cannot receive message the student message.\n");
+    }
 }

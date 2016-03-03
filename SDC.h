@@ -41,7 +41,6 @@ static int read_client(int sock, char * buffer);
 static int read_answer(int sock, int * answer);
 
 static void write_client(int sock, const char * buffer);
-static void send_connected_students(int sock, const Client * clients, int nbClients);
 static void send_to_all_students(Client * students, int nbStudents, const char * buffer);
 
 static void remove_client(Client *clients, int to_remove, int *actual);
