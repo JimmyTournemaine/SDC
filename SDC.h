@@ -2,8 +2,8 @@
  * Server RIP application
  * @file SDC_ELS.h
  * @author Jimmy Tournemaine <jimmy.tournemaine@yahoo.fr>
- * @version 1.0
- * @date 23 feb. 2016
+ * @version 1.0.1
+ * @date 5 mar. 2016
  */
 #ifndef SCD
 

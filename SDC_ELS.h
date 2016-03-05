@@ -2,8 +2,8 @@
  * Student RIP application
  * @file SDC_ELS.h
  * @author Jimmy Tournemaine <jimmy.tournemaine@yahoo.fr>
- * @version 1.0
- * @date 23 feb. 2016
+ * @version 1.0.1
+ * @date 5 mar. 2016
  */
 #ifndef SDC_ELS
 
@@ -11,6 +11,7 @@
 #define PORT 1234
 #define SERVER_NAME "localhost"
 #define BUFSIZE 1024
+#define clear() printf("\033[H\033[2J");
 
 
 /********************* SA Authentification *********************/

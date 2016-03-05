@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <termios.h>
 #include "SDC_ELS.h"
@@ -16,28 +14,38 @@ int main(void)
     char buffer[BUFSIZE];
     char login[255];
     char password[255];
-    int accessGranted, answer;
+    int accessGranted = 0, attempts = 3, answer;
     socklen_t tosize = sizeof to;
     
     /* -------------- Authentification ------------- */
-    printf("Login : ");
-    scanf("%s", login);
-    
-    ask_password(password);
-    crypt_password(password);
-    
-    /* Sending */
-    sprintf(buffer, "%s+%s", login, password);
-    sendID(sock, buffer, &to, tosize);
-    
-    getAuthenticationResponse(sock, &accessGranted, &to, &tosize);
-    if (accessGranted) {
-        printf("Access granted.\n");
-    } else {
-        exit(EXIT_FAILURE);
-    }
+    do {
+        printf("Login : ");
+        scanf("%s", login);
+        
+        ask_password(password);
+        crypt_password(password);
+        
+        /* Sending */
+        sprintf(buffer, "%s+%s", login, password);
+        sendID(sock, buffer, &to, tosize);
+        
+        /* Get response */
+        getAuthenticationResponse(sock, &accessGranted, &to, &tosize);
+        if (accessGranted) {
+            break;
+        } else {
+            printf("Sorry, try again.\n");
+        }
+        
+        attempts--;
+    } while (attempts > 0 && accessGranted != 1);
     
     close(sock);
+    
+    if (attempts == 0) {
+        printf("3 incorrect password attempts\n");
+        exit(EXIT_SUCCESS);
+    }
     
     /* ----------- TCP Connection & class -----------*/
     
@@ -60,14 +68,19 @@ int main(void)
     
     while (1)
     {
+        /* Print exercise */
         read_message(sock, buffer);
         printf("%s\n", buffer);
         
+        /* Send answer */
         printf("Your answer ? ");
         fflush(stdout);
         
         scanf("%d", &answer);
         send_exercise_answer(sock, &answer);
+        
+        /* Clears console */
+        clear();
     }
     
     close(sock);
@@ -92,6 +105,7 @@ static int sock_connect()
     if ((host = gethostbyname(SERVER_NAME)) == NULL)
     {
         perror("gethostbyname");
+        close(sock);
         exit(EXIT_FAILURE);
     }
     
@@ -105,6 +119,7 @@ static int sock_connect()
     if (connect(sock, (struct sockaddr *) &server_addr, sizeof(server_addr))==-1)
     {
         perror("connect");
+        close(sock);
         exit(EXIT_FAILURE);
     }
     
@@ -117,6 +132,7 @@ static void send_login(int sock, const char * login)
     if ((send(sock, login, sizeof(login), 0)) != sizeof(login))
     {
         fprintf(stderr, "Cannot send login.\n");
+        close(sock);
         exit(EXIT_FAILURE);
     }
 }
@@ -124,10 +140,15 @@ static void send_login(int sock, const char * login)
 static void read_message(int sock, char * buffer)
 {
     ssize_t n = read(sock,buffer,BUFSIZE);
-    
+
     if(n == -1) {
         fprintf(stderr, "Cannot read a message.\n");
         exit(EXIT_FAILURE);
+    }
+    if (n == 0) {
+        printf("Your professor has leaving. The class is over.\n");
+        close(sock);
+        exit(EXIT_SUCCESS);
     }
     
     buffer[n] = '\0';
@@ -139,6 +160,7 @@ static void send_exercise_answer(int sock, int * panswer)
     
     if (sent != sizeof(int)){
         fprintf(stderr, "Cannot send the answer.\n");
+        close(sock);
         exit(EXIT_FAILURE);
     }
 }
@@ -174,6 +196,7 @@ static void sendID(int sock, char * buffer, struct sockaddr_in * to, socklen_t t
     if(sendto(sock, buffer, BUFSIZE, 0, (struct sockaddr *)to, tosize) < 0)
     {
         perror("sendto()");
+        close(sock);
         exit(EXIT_FAILURE);
     }
 }
@@ -184,6 +207,7 @@ static void getAuthenticationResponse(int sock, int * val, struct sockaddr_in * 
     if((n = recvfrom(sock, val, sizeof(int), 0, (struct sockaddr *) to, (socklen_t *)tosize)) < 0)
     {
         perror("recvfrom()");
+        close(sock);
         exit(EXIT_FAILURE);
     }
 }

@@ -1,14 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
-#include <sys/types.h>
 #include <netdb.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <string.h>
-#include <arpa/inet.h>
-#include <errno.h>
 #include "SDC_CHAT.h"
 
 int main(void)
@@ -36,7 +31,7 @@ int main(void)
         }
         
         
-        /*réception de la réponse du professeur*/
+        /* Send your message */
         if(FD_ISSET(STDIN_FILENO, &rdfs))
         {
             fgets(buffer, BUFSIZE, stdin);
@@ -49,11 +44,11 @@ int main(void)
             
         }
         
-        /*envoie du message*/
+        /* Get a message from the professor */
         else if(FD_ISSET(sock, &rdfs))
         {
        	    receive_message(sock, &adresseReceveur, buffer, &lgadresseReceveur);
-            printf("%s\n", buffer);
+            printf("Your professor said : %s\n", buffer);
             fflush(stdout);
             
         }
@@ -97,7 +92,6 @@ static int udp_connect(struct sockaddr_in * adresseReceveur)
 // Envoyer le contenu de buffer depuis la socket
 static void send_message(int sock, struct sockaddr_in *adresseReceveur, const char *buffer, socklen_t lgadresseReceveur)
 {
-    printf("J'envoie : %s\n", buffer);
     if (sendto(sock,buffer,BUFSIZE,0,(struct sockaddr *)adresseReceveur, sizeof(*adresseReceveur)) < 0)
     {
         fprintf(stderr, "Cannot send message.\n");

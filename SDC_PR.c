@@ -1,13 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
-#include <sys/types.h>
 #include <netdb.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <string.h>
-#include <arpa/inet.h>
 #include "SDC_PR.h"
 
 int main(void)
@@ -17,20 +12,21 @@ int main(void)
     struct sockaddr_in adr;
     socklen_t sizeadr = sizeof adr;
     
-    /*connexion UDP*/
+    /* Chat connection */
     int socket = udp_connect(&adr);
     
     /* Server connection */
     int sock = sock_connect();
     
+    /* Sends "login" */
     strcpy(buffer, "prof");
     sock_write(sock, buffer);
     
-    /* Keep wait students or start class */
+
     fd_set rdfs;
-    
     printf("Press enter to start class.\n");
     
+    /* ------------------------ Wait Students -----------------*/
     while(1)
     {
         FD_ZERO(&rdfs);
@@ -43,15 +39,14 @@ int main(void)
             exit(EXIT_FAILURE);
         }
         
-        /* Something from standard input */
+        /* Start class */
         if(FD_ISSET(STDIN_FILENO, &rdfs))
         {
-            /* Notify that we want start class */
             strcpy(buffer, "start");
             sock_write(sock, buffer);
             break;
         }
-        /* A student is connected  */
+        /* Print new connected student  */
         else if(FD_ISSET(sock, &rdfs))
         {
             sock_read(sock, buffer);
@@ -59,31 +54,36 @@ int main(void)
         }
     }
     
+    fflush(stdout);
     
-    /* Le cours commence */
+    /* --------------- Send exercises and get students answers --------------- */
     while(1)
     {
-        /* Get exercises list */
+        /* Select and exercise to send to the students */
         sock_read(sock, buffer);
         printf("%s\n", buffer);
         
-        /* Let professor choose the exercise he wants */
         printf("Select an exercise : ");
-        fflush(stdout);
+        //fflush(stdout);
         scanf("%s", buffer);
         
-        /* Purge stdin */
-        do {
+        do { // Purge stdin for fgets
             c = getchar();
         } while (c != EOF && c != '\n');
+        
+        /* Exit condition */
+        if (strcmp(buffer, "exit") == 0) {
+            break;
+        }
         
         /* Send the exercise name */
         sock_write(sock, buffer);
         
+        printf("--------------------------------------------------------------\n");
+        
         /* Get answers, disconnection message or end of the exercise */
         int max = (sock > socket) ? sock : socket;
         while(1) {
-            
             FD_ZERO(&rdfs);
             FD_SET(sock, &rdfs);
             FD_SET(socket, &rdfs);
@@ -94,18 +94,20 @@ int main(void)
                 exit(EXIT_FAILURE);
             }
             
-            /* Affichage réponses */
+            /* Answer / End of the exercise */
             if(FD_ISSET(sock, &rdfs))
             {
                 sock_read(sock, buffer);
+                printf("--%s--", buffer);
+                fflush(stdout);
                 if(strcmp(buffer, "finished") == 0)
                 {
                     break;
                 }
                 else
                 {
-                    printf("%s\n", buffer);
-                    fflush(stdout);
+                    color(buffer);
+                    //fflush(stdout);
                 }
             }
             
@@ -122,9 +124,11 @@ int main(void)
             }
         }
         
-        printf("Exercise done.\n");
-        
-        sleep(3);
+        printf("Exercise done.\n--------------------------------------------------------------\n");
+        printf("Press enter for the next exercise.");
+        do {
+            c = getchar();
+        } while (c != EOF && c != '\n');
     }
     
     close(sock);

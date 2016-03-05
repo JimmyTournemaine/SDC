@@ -4,16 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include "SDC.h"
 
 int main(void)
 {
     /* Server launching */
-    int socketRV = socket_listen(PORT);
+    int socketRV = socket_listen();
     printf("Server is started.\n");
     
     char buffer[BUFSIZE];
@@ -76,7 +73,8 @@ int main(void)
                     sprintf(buffer, "%s is connected.\n", students[i].login);
                     write_client(csock, buffer);
                 }
-            /* Is is a student */
+                printf("The professor is connected\n");
+                /* Is is a student */
             } else {
                 if (nbStudents < MAXSTUDENTS)
                 {
@@ -84,9 +82,9 @@ int main(void)
                     students[nbStudents++] = c;
                     sprintf(buffer, "Welcome %s !\nYou will receive your first exercise soon !", c.login);
                     write_client(csock, buffer);
+                    printf("%s is connected\n", c.login);
                     
                     /* Notify the professor */
-                    fprintf(stderr, "%s is now connected\n", c.login);
                     if(prof.sock != 0) {
                         sprintf(buffer, "%s is now connected\n", c.login);
                         write_client(prof.sock, buffer);
@@ -96,6 +94,7 @@ int main(void)
                     strcpy(buffer, "> They are too many students, you will be disconnected.");
                     write_client(csock, buffer);
                     close(csock);
+                    printf("Connection refused : too many students (MAX = %d)", MAXSTUDENTS);
                 }
             }
         }
@@ -117,76 +116,87 @@ int main(void)
     
     while (1) {
         
-        /* Send exercise list */
+        /* Sends exercises list */
         findExercices(buffer);
         write_client(prof.sock, buffer);
         
-        read_client(prof.sock, buffer);
-        if (!getExercise(buffer)) { // exercise not found
-            continue;
+        /* Gets exercise */
+        if( read_client(prof.sock, buffer) == 0) {
+            break;
         }
         
-        /* Send exercise */
-        send_to_all_students(students, nbStudents, buffer);
-        
-        /* Wait answers */
-        pendingAnswers = nbStudents;
-        
-        while (pendingAnswers > 0)
+        if (getExercise(buffer))
         {
-            FD_ZERO(&rdfs);
-            for (i=0; i<nbStudents; i++) {
-                FD_SET(students[i].sock, &rdfs);
-            }
+            /* Send exercise */
+            send_to_all_students(students, nbStudents, buffer);
             
-            fprintf(stderr, "Waiting %d answers\n", pendingAnswers);
+            /* Wait answers */
+            pendingAnswers = nbStudents;
             
-            if(select(max + 1, &rdfs, NULL, NULL, NULL) == -1)
+            while (pendingAnswers > 0)
             {
-                perror("select()");
-                exit(EXIT_FAILURE);
-            }
-            
-            for (i=0; i<nbStudents; i++)
-            {
-                if(FD_ISSET(students[i].sock, &rdfs))
-                {
-                    Client student = students[i];
-                    if(read_answer(students[i].sock, &answer) < sizeof(int))
-                    {
-                        /* student disconnected */
-                        close(students[i].sock);
-                        remove_client(students, i, &nbStudents);
-                        strcpy(buffer, student.login);
-                        strcat(buffer, " is disconnected !");
-                        write_client(prof.sock, buffer);
-                    }
-                    else
-                    {
-                        sprintf(buffer, "%s answer : %d", student.login, answer);
-                        write_client(prof.sock, buffer);
-                    }
-                    pendingAnswers--;
+                FD_ZERO(&rdfs);
+                for (i=0; i<nbStudents; i++) {
+                    FD_SET(students[i].sock, &rdfs);
                 }
-
+                
+                fprintf(stderr, "%d ", pendingAnswers);
+                
+                if(select(max + 1, &rdfs, NULL, NULL, NULL) == -1)
+                {
+                    perror("select()");
+                    exit(EXIT_FAILURE);
+                }
+                
+                for (i=0; i<nbStudents; i++)
+                {
+                    if(FD_ISSET(students[i].sock, &rdfs))
+                    {
+                        Client student = students[i];
+                        if(read_answer(students[i].sock, &answer) < sizeof(int))
+                        {
+                            /* student disconnected */
+                            close(students[i].sock);
+                            remove_client(students, i, &nbStudents);
+                            strcpy(buffer, student.login);
+                            strcat(buffer, " is disconnected !");
+                            write_client(prof.sock, buffer);
+                        }
+                        else
+                        {
+                            sprintf(buffer, "%s answer : %d", student.login, answer);
+                            write_client(prof.sock, buffer);
+                        }
+                        pendingAnswers--;
+                    }
+                    
+                }
             }
+            
+            fprintf(stderr, "done.\n");
         }
         
-        fprintf(stderr, "Times up !");
         strcpy(buffer, "finished");
+        printf("->%s<-", buffer);
         write_client(prof.sock, buffer);
     }
+    
+    /* Close */
+    printf("The professor has left.\n");
+    close(prof.sock);
+    for (i=0; i<nbStudents; i++) {
+        close(students[i].sock);
+    }
+    printf("Bye.\n");
 }
 
 static int read_client(int sock, char * buffer)
 {
     int n = 0;
     
-    if((n = recv(sock, buffer, BUFSIZE - 1, 0)) < 0)
+    if((n = recv(sock, buffer, BUFSIZE, 0)) < 0)
     {
-        perror("recv()");
-        /* if recv error we disonnect the client */
-        n = 0;
+        perror("recv()"); // if recv error we disconnect clients
     }
     
     buffer[n] = 0;
@@ -217,7 +227,7 @@ static void send_to_all_students(Client * students, int nbStudents, const char *
 }
 
 
-static int socket_listen(int port)
+static int socket_listen()
 {
     int socket_RV;
     struct sockaddr_in adresseRV;
@@ -231,7 +241,7 @@ static int socket_listen(int port)
     
     /* preparation de l'adresse locale */
     adresseRV.sin_family = AF_INET;
-    adresseRV.sin_port = htons((unsigned short) port);
+    adresseRV.sin_port = htons(PORT);
     adresseRV.sin_addr.s_addr = htonl(INADDR_ANY);
     
     lgadresseRV = sizeof(adresseRV);

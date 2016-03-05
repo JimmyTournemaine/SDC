@@ -2,8 +2,8 @@
  * Professor RIP application
  * @file SDC_PRF.h
  * @author Jean Arthur Ousmane
- * @version 1.1
- * @date 2 mars. 2016
+ * @version 1.0.5
+ * @date 5 mars. 2016
  */
 
 #ifndef SDC_PR
@@ -13,6 +13,7 @@
 #define CHAT_PORT 1235
 #define SERVER "localhost"
 #define BUFSIZE 1024
+#define color(param) printf("\033[36m%s\033[0m\n",param)
 
 /**
  * Creates a socket, prepare its address and connect to the server.
