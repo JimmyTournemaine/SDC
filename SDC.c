@@ -177,7 +177,6 @@ int main(void)
         }
         
         strcpy(buffer, "finished");
-        printf("->%s<-", buffer);
         write_client(prof.sock, buffer);
     }
     

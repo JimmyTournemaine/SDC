@@ -61,4 +61,6 @@ static void receive_message(int sock, struct sockaddr_in *adresseReceveur, char 
  */
 static void send_message(int sock, struct sockaddr_in *adresseReceveur, const char *buffer, socklen_t lgadresseReceveur);
 
+// static int explodeAnswer(char * buffer, ssize_t offset);
+
 #endif

@@ -98,16 +98,8 @@ int main(void)
             if(FD_ISSET(sock, &rdfs))
             {
                 sock_read(sock, buffer);
-                printf("--%s--", buffer);
-                fflush(stdout);
-                if(strcmp(buffer, "finished") == 0)
-                {
+                if (explodeAnswer(buffer, 0) == 1){
                     break;
-                }
-                else
-                {
-                    color(buffer);
-                    //fflush(stdout);
                 }
             }
             
@@ -133,6 +125,31 @@ int main(void)
     
     close(sock);
 }
+
+/* static int explodeAnswer(char * buffer, ssize_t offset)
+{
+    int i;
+    char temp[BUFSIZE];
+    
+    if(strncmp(buffer+offset, "finished", 8) == 0) {
+        return 1;
+    }
+    
+    for (i=offset; i<strlen(buffer); i++) {
+        if (buffer[i] >= 48 && buffer[i] <= 57) {
+            break;
+        }
+    }
+    strncpy(temp, buffer+offset, i+1);
+    
+    color(temp);
+    
+    if(i < strlen(buffer)) {
+        return explodeAnswer(buffer, i+1);
+    }
+    
+    return 0;
+} */
 
 static void sock_write(int sock, const char * buffer)
 {
